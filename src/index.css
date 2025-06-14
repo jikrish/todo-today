@@ -1,0 +1,242 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply px-4 py-2 rounded-lg font-medium transition-all text-sm sm:text-base;
+  }
+  
+  .btn-primary {
+    @apply bg-primary text-white hover:bg-secondary shadow-sm hover:shadow-md active:scale-95;
+  }
+  
+  .input {
+    @apply w-full px-4 py-3 rounded-xl bg-gray-100 dark:bg-gray-800 
+           focus:outline-none focus:ring-2 focus:ring-primary/20 
+           dark:focus:ring-primary/30 transition-all
+           text-sm sm:text-base text-gray-900 dark:text-gray-100
+           placeholder:text-gray-400 dark:placeholder:text-gray-500;
+  }
+
+  .todo-input {
+    @apply w-full px-4 py-3 text-sm sm:text-base 
+           bg-white/80 dark:bg-gray-800/80 
+           border border-gray-200 dark:border-gray-700 
+           rounded-xl shadow-sm 
+           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent 
+           transition-all duration-300 ease-in-out
+           placeholder:text-gray-400 dark:placeholder:text-gray-500
+           backdrop-blur-sm;
+  }
+
+  .todo-button {
+    @apply px-6 py-3 text-sm sm:text-base font-medium 
+           text-white bg-gradient-to-r from-blue-500 to-blue-600 
+           hover:from-blue-600 hover:to-blue-700 
+           active:from-blue-700 active:to-blue-800 
+           rounded-xl shadow-sm 
+           transition-all duration-300 ease-in-out 
+           hover:shadow-md active:shadow-sm 
+           disabled:opacity-50 disabled:cursor-not-allowed
+           disabled:hover:shadow-none;
+  }
+
+  .todo-item {
+    @apply flex items-center gap-3 p-4 
+           bg-white/80 dark:bg-gray-800/80 
+           rounded-xl shadow-sm 
+           border border-gray-100 dark:border-gray-700 
+           hover:shadow-md 
+           transition-all duration-300 ease-in-out 
+           hover:-translate-y-0.5
+           backdrop-blur-sm;
+  }
+
+  .todo-check {
+    @apply flex-shrink-0 p-1.5 
+           rounded-full 
+           hover:bg-gray-100 dark:hover:bg-gray-700 
+           transition-all duration-300 ease-in-out 
+           hover:scale-110 active:scale-95;
+  }
+
+  .todo-delete {
+    @apply flex-shrink-0 p-1.5 
+           text-gray-400 dark:text-gray-500 
+           hover:text-red-500 dark:hover:text-red-400 
+           rounded-full 
+           hover:bg-gray-100 dark:hover:bg-gray-700 
+           transition-all duration-300 ease-in-out 
+           hover:scale-110 active:scale-95;
+  }
+
+  .theme-toggle {
+    @apply p-2.5 
+           text-gray-500 dark:text-gray-400 
+           hover:text-gray-700 dark:hover:text-gray-200 
+           rounded-xl 
+           hover:bg-gray-100 dark:hover:bg-gray-700 
+           transition-all duration-300 ease-in-out 
+           hover:scale-110 active:scale-95;
+  }
+
+  .task-count {
+    @apply text-sm text-gray-500 dark:text-gray-400
+           flex items-center gap-2 mb-4;
+  }
+
+  .task-count-badge {
+    @apply px-2 py-0.5 rounded-full text-xs font-medium
+           bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300;
+  }
+
+  /* Add animation keyframes */
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  /* Apply animations to elements */
+  .todo-item {
+    animation: slideIn 0.3s ease-out;
+  }
+
+  .todo-check, .todo-delete, .theme-toggle {
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  /* Calendar Styles */
+  .calendar-container {
+    @apply bg-white/95 dark:bg-gray-800/95 
+           rounded-xl shadow-lg 
+           border border-gray-100 dark:border-gray-700 
+           p-6
+           backdrop-blur-sm;
+  }
+
+  .calendar-header {
+    @apply flex items-center justify-between mb-6;
+  }
+
+  .calendar-title {
+    @apply text-xl font-semibold text-gray-800 dark:text-gray-100;
+  }
+
+  .calendar-nav-button {
+    @apply p-2 rounded-lg
+           text-gray-500 dark:text-gray-400 
+           hover:text-gray-700 dark:hover:text-gray-200 
+           hover:bg-gray-100 dark:hover:bg-gray-700 
+           transition-all duration-200;
+  }
+
+  .calendar-grid {
+    @apply grid grid-cols-7 gap-2;
+  }
+
+  .calendar-day-header {
+    @apply text-center text-sm font-medium 
+           text-gray-500 dark:text-gray-400 
+           py-2;
+  }
+
+  .calendar-day {
+    @apply relative aspect-square p-2 
+           text-center cursor-pointer 
+           rounded-lg
+           hover:bg-gray-100 dark:hover:bg-gray-700 
+           transition-all duration-200
+           flex flex-col items-center justify-center;
+  }
+
+  .calendar-day.empty {
+    @apply cursor-default hover:bg-transparent;
+  }
+
+  .calendar-day.today {
+    @apply bg-blue-50 dark:bg-blue-900/30 
+           text-blue-600 dark:text-blue-400
+           font-semibold;
+  }
+
+  .calendar-day.selected {
+    @apply bg-blue-100 dark:bg-blue-800/50 
+           text-blue-700 dark:text-blue-300
+           font-semibold;
+  }
+
+  .calendar-day.has-tasks {
+    @apply font-medium;
+  }
+
+  .day-number {
+    @apply text-base sm:text-lg;
+  }
+
+  .task-dot {
+    @apply mt-1
+           w-2 h-2 rounded-full
+           bg-blue-500 dark:bg-blue-400;
+  }
+
+  @keyframes modalFadeIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95) translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  .calendar-container {
+    animation: modalFadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  @keyframes subtlePulse {
+    0% {
+      box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+    }
+    70% {
+      box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+    }
+  }
+
+  .calendar-button {
+    animation: subtlePulse 2s infinite;
+  }
+
+  .calendar-button:hover {
+    animation: none;
+  }
+}
