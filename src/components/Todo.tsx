@@ -174,12 +174,16 @@ export default function Todo() {
     <div className={`min-h-screen transition-colors duration-300 ${
       isToday 
         ? 'bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800'
-        : 'bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900'
+        : 'bg-gradient-to-br from-gray-200/95 to-gray-300/95 dark:from-gray-800/95 dark:to-gray-900/95 backdrop-blur-sm'
     }`}>
       <div className="max-w-md sm:max-w-xl md:max-w-2xl lg:max-w-3xl mx-auto p-4 sm:p-6">
         <div className="flex justify-between items-center mb-4">
           <div>
-            <h1 className="text-3xl sm:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-blue-400 dark:from-blue-400 dark:to-blue-300">
+            <h1 className={`text-3xl sm:text-4xl font-bold bg-clip-text text-transparent ${
+              isToday 
+                ? 'bg-gradient-to-r from-blue-600 to-blue-400 dark:from-blue-400 dark:to-blue-300'
+                : 'bg-gradient-to-r from-gray-600 to-gray-400 dark:from-gray-400 dark:to-gray-300'
+            }`}>
               Todo Today
             </h1>
             <button
@@ -188,7 +192,7 @@ export default function Todo() {
                        text-lg sm:text-xl font-medium 
                        ${isToday 
                          ? 'text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400'
-                         : 'text-gray-600 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-300'
+                         : 'text-gray-600 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-200'
                        }
                        hover:bg-gray-100 dark:hover:bg-gray-800
                        transition-all duration-200
@@ -197,7 +201,7 @@ export default function Todo() {
               <CalendarIcon className={`w-5 h-5 sm:w-6 sm:h-6 
                                      ${isToday 
                                        ? 'text-blue-500 dark:text-blue-400'
-                                       : 'text-blue-400 dark:text-blue-300'
+                                       : 'text-gray-500 dark:text-gray-400'
                                      }
                                      group-hover:scale-110 transition-transform duration-200`} />
               <span className="group-hover:translate-x-0.5 transition-transform duration-200">
@@ -282,7 +286,7 @@ export default function Todo() {
                 <div
                   key={todo.id}
                   className={`todo-item group transition-all duration-300 ${
-                    !isToday ? 'bg-white/90 dark:bg-gray-800/90' : ''
+                    !isToday ? 'bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm' : ''
                   }`}
                   style={{ animationDelay: `${index * 50}ms` }}
                   onClick={() => handleTaskTap(todo.id)}
@@ -292,12 +296,18 @@ export default function Todo() {
                       e.stopPropagation();
                       toggleTodo(todo.id);
                     }}
-                    className="todo-check text-gray-400 dark:text-gray-500"
+                    className={`todo-check ${
+                      isToday 
+                        ? 'text-gray-400 dark:text-gray-500'
+                        : 'text-gray-500 dark:text-gray-400'
+                    }`}
                   >
                     <CheckCircleIcon className="w-5 h-5 sm:w-6 sm:h-6" />
                   </button>
                   
-                  <span className="flex-1 text-sm sm:text-base transition-all duration-300">
+                  <span className={`flex-1 text-sm sm:text-base transition-all duration-300 ${
+                    !isToday ? 'text-gray-600 dark:text-gray-300' : ''
+                  }`}>
                     {todo.text}
                   </span>
                   
@@ -319,7 +329,11 @@ export default function Todo() {
                 <div className="mt-6">
                   <button
                     onClick={() => setShowCompleted(!showCompleted)}
-                    className="w-full flex items-center justify-between px-4 py-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors duration-200"
+                    className={`w-full flex items-center justify-between px-4 py-2 text-sm ${
+                      isToday 
+                        ? 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                        : 'text-gray-600 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-200'
+                    } transition-colors duration-200`}
                   >
                     <span>Completed Tasks</span>
                     {showCompleted ? (
@@ -335,7 +349,7 @@ export default function Todo() {
                         <div
                           key={todo.id}
                           className={`todo-item group transition-all duration-300 opacity-75 ${
-                            !isToday ? 'bg-white/90 dark:bg-gray-800/90' : ''
+                            !isToday ? 'bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm' : ''
                           }`}
                           style={{ animationDelay: `${index * 50}ms` }}
                           onClick={() => handleTaskTap(todo.id)}
@@ -350,7 +364,11 @@ export default function Todo() {
                             <CheckCircleIcon className="w-5 h-5 sm:w-6 sm:h-6" />
                           </button>
                           
-                          <span className="flex-1 text-sm sm:text-base transition-all duration-300 line-through text-gray-500 dark:text-gray-400">
+                          <span className={`flex-1 text-sm sm:text-base transition-all duration-300 line-through ${
+                            isToday 
+                              ? 'text-gray-500 dark:text-gray-400'
+                              : 'text-gray-600 dark:text-gray-300'
+                          }`}>
                             {todo.text}
                           </span>
                           
