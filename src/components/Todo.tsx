@@ -1,26 +1,35 @@
 import { useState, useEffect } from 'react';
-import { CheckCircleIcon, TrashIcon, ExclamationCircleIcon, ClipboardDocumentListIcon, CalendarIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
+import { CheckCircleIcon, TrashIcon, ExclamationCircleIcon, ClipboardDocumentListIcon, CalendarIcon, ChevronDownIcon, ChevronUpIcon, UserCircleIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import ThemeToggle from './ThemeToggle';
 import Calendar from './Calendar';
 
 interface Todo {
-  id: number;
-  text: string;
+  _id?: string;
+  title: string;
+  description?: string;
   completed: boolean;
-  createdAt: number;
+  dueDate?: Date;
+  user?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  localId?: string;
 }
 
-const MAX_TASKS = 100;
+interface User {
+  _id: string;
+  name: string;
+  email: string;
+  picture?: string;
+}
+
+const API_URL = 'http://localhost:3000/api';
 
 export default function Todo() {
   const [todos, setTodos] = useState<Todo[]>(() => {
-    // Load todos from localStorage on initial render
     const savedTodos = localStorage.getItem('todos');
     if (savedTodos) {
       try {
-        const parsed = JSON.parse(savedTodos);
-        // Ensure we only load up to MAX_TASKS
-        return parsed.slice(0, MAX_TASKS);
+        return JSON.parse(savedTodos);
       } catch (error) {
         console.error('Error parsing todos from localStorage:', error);
         return [];
@@ -36,6 +45,115 @@ export default function Todo() {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [lastTapTime, setLastTapTime] = useState<number>(0);
   const [showCompleted, setShowCompleted] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [showLoginForm, setShowLoginForm] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+
+  // Check authentication status
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await fetch(`${API_URL}/user`, {
+          credentials: 'include'
+        });
+        
+        if (response.ok) {
+          const userData = await response.json();
+          setUser(userData);
+          setIsAuthenticated(true);
+        } else {
+          setIsAuthenticated(false);
+          setUser(null);
+        }
+      } catch (err) {
+        console.error('Error checking auth status:', err);
+        setIsAuthenticated(false);
+        setUser(null);
+      }
+    };
+
+    checkAuth();
+  }, []);
+
+  // Sync todos with server when authenticated
+  useEffect(() => {
+    const syncTodos = async () => {
+      if (!isAuthenticated) return;
+
+      try {
+        setIsLoading(true);
+        const response = await fetch(`${API_URL}/todos`, {
+          credentials: 'include'
+        });
+
+        if (response.status === 401) {
+          setIsAuthenticated(false);
+          setUser(null);
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch todos');
+        }
+
+        const serverTodos = await response.json();
+        const localTodos = JSON.parse(localStorage.getItem('todos') || '[]');
+        
+        // Merge local and server todos
+        const mergedTodos = [...serverTodos];
+        
+        // Add local todos that don't exist on server
+        localTodos.forEach((localTodo: Todo) => {
+          if (!localTodo._id && !mergedTodos.some(serverTodo => 
+            serverTodo.title === localTodo.title && 
+            new Date(serverTodo.createdAt).getTime() === new Date(localTodo.createdAt).getTime()
+          )) {
+            // Upload local todo to server
+            fetch(`${API_URL}/todos`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              credentials: 'include',
+              body: JSON.stringify({
+                title: localTodo.title,
+                description: localTodo.description || '',
+                completed: localTodo.completed,
+                dueDate: localTodo.dueDate
+              })
+            })
+            .then(response => response.json())
+            .then(serverTodo => {
+              mergedTodos.push(serverTodo);
+              setTodos(mergedTodos);
+              localStorage.setItem('todos', JSON.stringify(mergedTodos));
+            })
+            .catch(err => {
+              console.error('Error syncing local todo:', err);
+              mergedTodos.push(localTodo);
+            });
+          }
+        });
+
+        setTodos(mergedTodos);
+        localStorage.setItem('todos', JSON.stringify(mergedTodos));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    syncTodos();
+  }, [isAuthenticated]);
+
+  // Save todos to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('todos', JSON.stringify(todos));
+  }, [todos]);
 
   // Update date every minute
   useEffect(() => {
@@ -52,82 +170,151 @@ export default function Todo() {
     day: 'numeric'
   });
 
-  // Check for new day and archive completed tasks
-  useEffect(() => {
-    const checkNewDay = () => {
-      const lastVisit = localStorage.getItem('lastVisit');
-      const today = new Date().toDateString();
-      
-      if (lastVisit !== today) {
-        const completedTasks = todos.filter(todo => todo.completed);
-        if (completedTasks.length > 0) {
-          // Archive completed tasks
-          const archivedTasks = JSON.parse(localStorage.getItem('archivedTasks') || '[]');
-          const newArchivedTasks = [
-            ...archivedTasks,
-            ...completedTasks.map(task => ({
-              ...task,
-              archivedAt: Date.now()
-            }))
-          ];
-          localStorage.setItem('archivedTasks', JSON.stringify(newArchivedTasks));
-          
-          // Remove completed tasks from current todos
-          setTodos(prev => prev.filter(todo => !todo.completed));
-          setShowArchiveMessage(true);
-          setTimeout(() => setShowArchiveMessage(false), 3000);
-        }
-        localStorage.setItem('lastVisit', today);
-      }
-    };
-
-    checkNewDay();
-    const interval = setInterval(checkNewDay, 60000); // Check every minute
-    return () => clearInterval(interval);
-  }, [todos]);
-
-  // Save todos to localStorage whenever they change
-  useEffect(() => {
-    localStorage.setItem('todos', JSON.stringify(todos));
-  }, [todos]);
-
-  const addTodo = (e: React.FormEvent) => {
+  const addTodo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTodo.trim()) return;
 
-    if (todos.length >= MAX_TASKS) {
-      setShowLimitWarning(true);
-      setTimeout(() => setShowLimitWarning(false), 3000);
-      return;
-    }
-
     const todo: Todo = {
-      id: Date.now(),
-      text: newTodo.trim(),
+      title: newTodo,
+      description: '',
       completed: false,
-      createdAt: new Date().setHours(0, 0, 0, 0) // Set to start of today
+      dueDate: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      localId: `local-${Date.now()}`
     };
 
-    setTodos(prev => [...prev, todo]);
+    if (isAuthenticated) {
+      try {
+        const response = await fetch(`${API_URL}/todos`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            title: todo.title,
+            description: todo.description,
+            completed: todo.completed,
+            dueDate: todo.dueDate
+          }),
+        });
+
+        if (response.status === 401) {
+          setIsAuthenticated(false);
+          setUser(null);
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error('Failed to create todo');
+        }
+
+        const serverTodo = await response.json();
+        setTodos(prev => [...prev, serverTodo]);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to create todo');
+        // Fallback to local storage
+        setTodos(prev => [...prev, todo]);
+      }
+    } else {
+      // Store in local storage only
+      setTodos(prev => [...prev, todo]);
+    }
     setNewTodo('');
-    setSelectedDate(new Date()); // Reset to today's date when adding a new task
   };
 
-  const toggleTodo = (id: number) => {
-    setTodos(prev =>
-      prev.map(todo =>
-        todo.id === id ? { ...todo, completed: !todo.completed } : todo
-      )
-    );
+  const toggleTodo = async (id: string) => {
+    const todoToUpdate = todos.find(todo => todo._id === id || todo.localId === id);
+    if (!todoToUpdate) return;
+
+    const updatedTodo = {
+      ...todoToUpdate,
+      completed: !todoToUpdate.completed,
+      updatedAt: new Date()
+    };
+
+    if (isAuthenticated && todoToUpdate._id) {
+      try {
+        const response = await fetch(`${API_URL}/todos/${todoToUpdate._id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include',
+          body: JSON.stringify(updatedTodo),
+        });
+
+        if (response.status === 401) {
+          setIsAuthenticated(false);
+          setUser(null);
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error('Failed to update todo');
+        }
+
+        const serverTodo = await response.json();
+        setTodos(prev =>
+          prev.map(todo =>
+            todo._id === todoToUpdate._id ? serverTodo : todo
+          )
+        );
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to update todo');
+        // Fallback to local storage
+        setTodos(prev =>
+          prev.map(todo =>
+            todo.localId === todoToUpdate.localId ? updatedTodo : todo
+          )
+        );
+      }
+    } else {
+      // Update in local storage only
+      setTodos(prev =>
+        prev.map(todo =>
+          todo.localId === todoToUpdate.localId ? updatedTodo : todo
+        )
+      );
+    }
   };
 
-  const deleteTodo = (id: number) => {
-    setTodos(prev => prev.filter(todo => todo.id !== id));
+  const deleteTodo = async (id: string) => {
+    const todoToDelete = todos.find(todo => todo._id === id || todo.localId === id);
+    if (!todoToDelete) return;
+
+    if (isAuthenticated && todoToDelete._id) {
+      try {
+        const response = await fetch(`${API_URL}/todos/${todoToDelete._id}`, {
+          method: 'DELETE',
+          credentials: 'include'
+        });
+
+        if (response.status === 401) {
+          setIsAuthenticated(false);
+          setUser(null);
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error('Failed to delete todo');
+        }
+
+        setTodos(prev => prev.filter(todo => todo._id !== todoToDelete._id));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to delete todo');
+        // Fallback to local storage
+        setTodos(prev => prev.filter(todo => todo.localId !== todoToDelete.localId));
+      }
+    } else {
+      // Delete from local storage only
+      setTodos(prev => prev.filter(todo => todo.localId !== todoToDelete.localId));
+    }
   };
 
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
-    // Reset the form when changing dates
     setNewTodo('');
   };
 
@@ -146,7 +333,7 @@ export default function Todo() {
 
   const filteredTodos = selectedDate
     ? todos.filter(todo => {
-        const taskDate = new Date(todo.createdAt);
+        const taskDate = new Date(todo.dueDate || todo.createdAt);
         return (
           taskDate.getDate() === selectedDate.getDate() &&
           taskDate.getMonth() === selectedDate.getMonth() &&
@@ -159,7 +346,7 @@ export default function Todo() {
     ? new Date().toDateString() === selectedDate.toDateString()
     : true;
 
-  const handleTaskTap = (id: number) => {
+  const handleTaskTap = (id: string) => {
     const now = Date.now();
     const DOUBLE_TAP_DELAY = 300; // 300ms for double tap
 
@@ -170,47 +357,149 @@ export default function Todo() {
     setLastTapTime(now);
   };
 
+  const handleGoogleLogin = async () => {
+    setIsLoggingIn(true);
+    setError(null);
+
+    try {
+      // Redirect to Google OAuth endpoint
+      window.location.href = `${API_URL.replace('/api', '')}/auth/google`;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to login with Google');
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      const response = await fetch(`${API_URL.replace('/api', '')}/auth/logout`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        setIsAuthenticated(false);
+        setUser(null);
+        // Keep local todos but mark them as local-only
+        const currentTodos = todos.map(todo => ({
+          ...todo,
+          _id: undefined,
+          localId: todo.localId || `local-${Date.now()}`
+        }));
+        setTodos(currentTodos);
+        localStorage.setItem('todos', JSON.stringify(currentTodos));
+        setError(null);
+      } else {
+        throw new Error('Failed to logout');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to logout');
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
   return (
     <div className={`min-h-screen transition-colors duration-300 ${
       isToday 
         ? 'bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800'
         : 'bg-gradient-to-br from-gray-200/95 to-gray-300/95 dark:from-gray-800/95 dark:to-gray-900/95 backdrop-blur-sm'
     }`}>
-      <div className="max-w-md sm:max-w-xl md:max-w-2xl lg:max-w-3xl mx-auto p-4 sm:p-6">
-        <div className="flex justify-between items-center mb-4">
-          <div>
-            <h1 className={`text-3xl sm:text-4xl font-bold bg-clip-text text-transparent ${
-              isToday 
-                ? 'bg-gradient-to-r from-blue-600 to-blue-400 dark:from-blue-400 dark:to-blue-300'
-                : 'bg-gradient-to-r from-gray-600 to-gray-400 dark:from-gray-400 dark:to-gray-300'
-            }`}>
-              Todo Today
-            </h1>
+      {/* Login Modal */}
+      {showLoginForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-8 max-w-md w-full mx-4 relative">
             <button
-              onClick={toggleCalendar}
-              className={`mt-4 group flex items-center gap-2 px-3 py-1.5 rounded-lg
-                       text-lg sm:text-xl font-medium 
-                       ${isToday 
-                         ? 'text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400'
-                         : 'text-gray-600 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-200'
-                       }
-                       hover:bg-gray-100 dark:hover:bg-gray-800
-                       transition-all duration-200
-                       calendar-button`}
+              onClick={() => setShowLoginForm(false)}
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
             >
-              <CalendarIcon className={`w-5 h-5 sm:w-6 sm:h-6 
-                                     ${isToday 
-                                       ? 'text-blue-500 dark:text-blue-400'
-                                       : 'text-gray-500 dark:text-gray-400'
-                                     }
-                                     group-hover:scale-110 transition-transform duration-200`} />
-              <span className="group-hover:translate-x-0.5 transition-transform duration-200">
-                {formattedSelectedDate}
+              <XMarkIcon className="h-6 w-6" />
+            </button>
+            <h2 className="text-2xl font-bold mb-6 text-center">Login with Google</h2>
+            <div className="space-y-4">
+              {error && (
+                <div className="text-red-500 text-sm text-center">{error}</div>
+              )}
+              <button
+                onClick={handleGoogleLogin}
+                disabled={isLoggingIn}
+                className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-700 font-medium py-2 px-4 rounded-lg border border-gray-300 transition-colors duration-200 disabled:opacity-50"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24">
+                  <path
+                    fill="currentColor"
+                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                  />
+                  <path
+                    fill="currentColor"
+                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                  />
+                  <path
+                    fill="currentColor"
+                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                  />
+                  <path
+                    fill="currentColor"
+                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                  />
+                </svg>
+                {isLoggingIn ? 'Logging in...' : 'Continue with Google'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="max-w-2xl mx-auto px-4 py-8">
+        {/* Header Row: Title and Actions */}
+        <div className="flex items-center justify-between mb-2 gap-2">
+          <h1 className={`text-3xl font-bold bg-clip-text text-transparent ${
+            isToday 
+              ? 'bg-gradient-to-r from-blue-600 to-blue-400 dark:from-blue-400 dark:to-blue-300'
+              : 'bg-gradient-to-r from-gray-600 to-gray-400 dark:from-gray-400 dark:to-gray-300'
+          }`}>
+            Todo Today
+          </h1>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <button
+              onClick={isAuthenticated ? handleLogout : () => setShowLoginForm(true)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors
+                ${isAuthenticated
+                  ? 'text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400'
+                  : 'text-gray-600 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-200'
+                }
+                hover:bg-gray-100 dark:hover:bg-gray-800`}
+            >
+              <UserCircleIcon className="w-6 h-6" />
+              <span className="hidden sm:inline">
+                {isAuthenticated ? 'Logout' : 'Login'}
               </span>
             </button>
           </div>
-          <ThemeToggle />
         </div>
+        {/* Date Row */}
+        <div className="flex items-center gap-2 mb-2">
+          <button
+            onClick={toggleCalendar}
+            className="flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 transition-colors"
+          >
+            <CalendarIcon className="w-6 h-6" />
+            <span className="text-lg font-medium">{formattedSelectedDate}</span>
+          </button>
+        </div>
+        {/* Hello User Row */}
+        {isAuthenticated && user && (
+          <div className="mb-4 text-gray-700 dark:text-gray-200">
+            Hello, {user.name}
+          </div>
+        )}
 
         <Calendar
           tasks={todos}
@@ -228,11 +517,10 @@ export default function Todo() {
                 onChange={(e) => setNewTodo(e.target.value)}
                 placeholder="What needs to be done?"
                 className="todo-input"
-                disabled={todos.length >= MAX_TASKS}
               />
               <button
                 type="submit"
-                disabled={!newTodo.trim() || todos.length >= MAX_TASKS}
+                disabled={!newTodo.trim()}
                 className="todo-button"
               >
                 Add
@@ -246,10 +534,10 @@ export default function Todo() {
           <span>Completed: <span className="task-count-badge">{filteredTodos.filter(todo => todo.completed).length}</span></span>
         </div>
 
-        {showLimitWarning && (
-          <div className="mb-6 p-4 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded-xl flex items-center gap-3 text-yellow-700 dark:text-yellow-300 animate-fade-in shadow-sm">
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl flex items-center gap-3 text-red-700 dark:text-red-300 animate-fade-in shadow-sm">
             <ExclamationCircleIcon className="w-5 h-5 flex-shrink-0" />
-            <span className="text-sm">Maximum limit of {MAX_TASKS} tasks reached. Please complete or delete some tasks first.</span>
+            <span className="text-sm">{error}</span>
           </div>
         )}
 
@@ -284,17 +572,17 @@ export default function Todo() {
               {/* Incomplete Tasks */}
               {filteredTodos.filter(todo => !todo.completed).map((todo, index) => (
                 <div
-                  key={todo.id}
+                  key={todo._id}
                   className={`todo-item group transition-all duration-300 ${
                     !isToday ? 'bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm' : ''
                   }`}
                   style={{ animationDelay: `${index * 50}ms` }}
-                  onClick={() => handleTaskTap(todo.id)}
+                  onClick={() => handleTaskTap(todo._id)}
                 >
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      toggleTodo(todo.id);
+                      toggleTodo(todo._id);
                     }}
                     className={`todo-check ${
                       isToday 
@@ -308,13 +596,13 @@ export default function Todo() {
                   <span className={`flex-1 text-sm sm:text-base transition-all duration-300 ${
                     !isToday ? 'text-gray-600 dark:text-gray-300' : ''
                   }`}>
-                    {todo.text}
+                    {todo.title}
                   </span>
                   
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      deleteTodo(todo.id);
+                      deleteTodo(todo._id);
                     }}
                     className="todo-delete opacity-0 group-hover:opacity-100 sm:opacity-100"
                     aria-label="Delete task"
@@ -347,17 +635,17 @@ export default function Todo() {
                     <div className="mt-2 space-y-3">
                       {filteredTodos.filter(todo => todo.completed).map((todo, index) => (
                         <div
-                          key={todo.id}
+                          key={todo._id}
                           className={`todo-item group transition-all duration-300 opacity-75 ${
                             !isToday ? 'bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm' : ''
                           }`}
                           style={{ animationDelay: `${index * 50}ms` }}
-                          onClick={() => handleTaskTap(todo.id)}
+                          onClick={() => handleTaskTap(todo._id)}
                         >
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              toggleTodo(todo.id);
+                              toggleTodo(todo._id);
                             }}
                             className="todo-check text-green-500"
                           >
@@ -369,13 +657,13 @@ export default function Todo() {
                               ? 'text-gray-500 dark:text-gray-400'
                               : 'text-gray-600 dark:text-gray-300'
                           }`}>
-                            {todo.text}
+                            {todo.title}
                           </span>
                           
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              deleteTodo(todo.id);
+                              deleteTodo(todo._id);
                             }}
                             className="todo-delete opacity-0 group-hover:opacity-100 sm:opacity-100"
                             aria-label="Delete task"

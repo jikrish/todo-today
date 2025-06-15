@@ -1,15 +1,19 @@
 import { useState } from 'react';
-import { ChevronLeftIcon, ChevronRightIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
-interface Task {
-  id: number;
-  text: string;
+interface Todo {
+  _id?: string;
+  title: string;
+  description?: string;
   completed: boolean;
-  createdAt: number;
+  dueDate?: Date;
+  user?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  localId?: string;
 }
 
 interface CalendarProps {
-  tasks: Task[];
+  tasks: Todo[];
   onDateSelect: (date: Date) => void;
   isOpen: boolean;
   onClose: () => void;
@@ -42,7 +46,7 @@ export default function Calendar({ tasks, onDateSelect, isOpen, onClose }: Calen
 
   const getTasksForDate = (date: Date) => {
     return tasks.filter(task => {
-      const taskDate = new Date(task.createdAt);
+      const taskDate = new Date(task.dueDate || task.createdAt);
       return (
         taskDate.getDate() === date.getDate() &&
         taskDate.getMonth() === date.getMonth() &&
@@ -65,81 +69,76 @@ export default function Calendar({ tasks, onDateSelect, isOpen, onClose }: Calen
     onClose();
   };
 
-  const renderCalendarDays = () => {
-    const days = [];
-    const today = new Date();
-
-    // Add empty cells for days before the first day of the month
-    for (let i = 0; i < firstDayOfMonth; i++) {
-      days.push(
-        <div key={`empty-${i}`} className="calendar-day empty"></div>
-      );
-    }
-
-    // Add cells for each day of the month
-    for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
-      const tasksForDay = getTasksForDate(date);
-      const isToday = date.toDateString() === today.toDateString();
-      const isSelected = selectedDate?.toDateString() === date.toDateString();
-
-      days.push(
-        <div
-          key={day}
-          className={`calendar-day ${isToday ? 'today' : ''} ${isSelected ? 'selected' : ''} ${
-            tasksForDay.length > 0 ? 'has-tasks' : ''
-          }`}
-          onClick={() => handleDateClick(date)}
-        >
-          <span className="day-number">{day}</span>
-          {tasksForDay.length > 0 && (
-            <span className="task-dot" title={`${tasksForDay.length} task(s)`}></span>
-          )}
-        </div>
-      );
-    }
-
-    return days;
-  };
-
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="calendar-container w-full max-w-md">
-        <div className="flex justify-between items-center mb-4">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md p-6 animate-fade-in">
+        <div className="flex justify-between items-center mb-6">
           <button
-            onClick={onClose}
-            className="calendar-nav-button"
-            aria-label="Close calendar"
+            onClick={handlePrevMonth}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
           >
-            <XMarkIcon className="w-6 h-6" />
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
           </button>
-          <h2 className="calendar-title">
+          <h2 className="text-xl font-semibold">
             {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
           </h2>
-          <div className="flex gap-2">
-            <button
-              onClick={handlePrevMonth}
-              className="calendar-nav-button"
-              aria-label="Previous month"
-            >
-              <ChevronLeftIcon className="w-5 h-5" />
-            </button>
-            <button
-              onClick={handleNextMonth}
-              className="calendar-nav-button"
-              aria-label="Next month"
-            >
-              <ChevronRightIcon className="w-5 h-5" />
-            </button>
-          </div>
+          <button
+            onClick={handleNextMonth}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
         </div>
-        <div className="calendar-grid">
+
+        <div className="grid grid-cols-7 gap-1 mb-2">
           {dayNames.map(day => (
-            <div key={day} className="calendar-day-header">
+            <div
+              key={day}
+              className="text-center text-sm font-medium text-gray-500 dark:text-gray-400 py-2"
+            >
               {day}
             </div>
           ))}
-          {renderCalendarDays()}
+        </div>
+
+        <div className="grid grid-cols-7 gap-1">
+          {Array.from({ length: firstDayOfMonth }).map((_, index) => (
+            <div key={`empty-${index}`} className="aspect-square" />
+          ))}
+          {Array.from({ length: daysInMonth }).map((_, index) => {
+            const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), index + 1);
+            const tasksForDate = getTasksForDate(date);
+            const isToday = new Date().toDateString() === date.toDateString();
+            const isSelected = selectedDate?.toDateString() === date.toDateString();
+
+            return (
+              <button
+                key={index}
+                onClick={() => handleDateClick(date)}
+                className={`aspect-square relative rounded-lg transition-all duration-200
+                          ${isToday 
+                            ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                            : isSelected
+                              ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100'
+                              : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
+                          }
+                          ${tasksForDate.length > 0 ? 'font-medium' : ''}`}
+              >
+                <span className="absolute top-1 left-1 text-sm">
+                  {index + 1}
+                </span>
+                {tasksForDate.length > 0 && (
+                  <span className="absolute bottom-1 right-1 text-xs">
+                    {tasksForDate.length}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>
